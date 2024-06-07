@@ -1,10 +1,7 @@
-name: Build and Package
+name: Build and Release
 
 on:
   push:
-    branches:
-      - main
-  pull_request:
     branches:
       - main
 
@@ -13,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Check out the repository
         uses: actions/checkout@v2
 
       - name: Set up Python
@@ -24,15 +21,29 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r dataclutch/requirements.txt
+          pip install setuptools wheel
 
-      - name: Create tarball
+      - name: Build the package
         run: |
-          mkdir -p build
-          tar -czvf build/dataclutch.tar.gz -C dataclutch .
+          python setup.py sdist bdist_wheel
 
-      - name: Upload tarball
-        uses: actions/upload-artifact@v2
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          name: dataclutch-tarball
-          path: build/dataclutch.tar.gz
+          tag_name: v${{ github.run_number }}
+          release_name: Release ${{ github.run_number }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./dist/dataclutch-*.tar.gz
+          asset_name: dataclutch-{{ github.run_number }}.tar.gz
+          asset_content_type: application/gzip
